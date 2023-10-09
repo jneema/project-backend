@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from sqlalchemy import create_engine, MetaData, Table, select
 from fastapi.middleware.cors import CORSMiddleware
-
+from pydantic import BaseModel
 
 # Create a FastAPI app instance
 app = FastAPI()
@@ -16,12 +16,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Define a Pydantic model to represent the feedback data
+class FeedbackItem(BaseModel):
+    name: str
+    text: str
+    rating: int
+
+
+class ReviewItem(BaseModel):
+    Alias: str
+    Positive_Review_Percentage: float
+
 # PostgreSQL database configuration
 DATABASE_URL = "postgresql://postgres:12345@localhost/api"  
 
 # Create a SQLAlchemy engine and metadata
 engine = create_engine(DATABASE_URL)
 metadata = MetaData()
+
+# Define the feedback table structure
+table_structure_feedback = Table(
+    'feedback',
+    metadata,
+    autoload=True,
+    autoload_with=engine
+)
+
 
 # Defining the table structure for all reviews
 table_structure_all_reviews = Table(
@@ -52,12 +72,38 @@ table_structure_mobile_banking = Table(
     autoload_with=engine
 )
 
-# Define a Pydantic model to represent the data
-from pydantic import BaseModel
+# API route to get all feedback items
+@app.get("/allfeedback", response_model=list[FeedbackItem])
+async def get_feedback():
+    query = select([table_structure_feedback])
+    result = []
+    with engine.connect() as conn:
+        rows = conn.execute(query)
+        for row in rows:
+            result.append(FeedbackItem(name=row['name'], text=row['text'], rating=row['rating']))
+    return result
 
-class ReviewItem(BaseModel):
-    Alias: str
-    Positive_Review_Percentage: float
+@app.post("/feedback")
+async def submit_feedback(feedback_data: FeedbackItem):
+      # Extract data from the submitted feedback
+    name = feedback_data.name
+    text = feedback_data.text
+    rating = feedback_data.rating
+    
+    # Perform any necessary validation or processing of the data
+    
+    # Insert the feedback data into the database
+    with engine.connect() as conn:
+        conn.execute(
+            table_structure_feedback.insert().values(
+                name=name,
+                text=text,
+                rating=rating
+            )
+        )
+    
+    # Return a response indicating successful submission
+    return {"message": "Feedback submitted successfully"}
 
 # API route to get all review items
 @app.get("/allreviews", response_model=list[ReviewItem])
