@@ -62,7 +62,7 @@ class Telecommunication(Base):
     Positive_Review_Percentage = Column(Float)
 
 
-class Feedback(Base):
+class FeedbackDB(Base):
     __tablename__ = "feedback"
 
     name = Column(String, primary_key=True, index=True)
@@ -75,6 +75,11 @@ class ReviewItemResponse(BaseModel):
     Positive_Review_Percentage: float
 
 class FeedbackCreate(BaseModel):
+    name: str
+    text: str
+    rating: int
+
+class FeedbackResponse(BaseModel):
     name: str
     text: str
     rating: int
@@ -107,8 +112,14 @@ async def get_telecommunication(db: Session = Depends(get_db)):
 
 @app.post("/feedback/")
 async def create_feedback(feedback: FeedbackCreate, db: Session = Depends(get_db)):
-    db_feedback = Feedback(**feedback.dict())
+    db_feedback = FeedbackDB(**feedback.dict())
     db.add(db_feedback)
     db.commit()
     db.refresh(db_feedback)
     return db_feedback
+
+# API route to get items from the 'feedbsck' table
+@app.get("/allfeedback", response_model=List[FeedbackResponse])
+async def get_feedback(db: Session = Depends(get_db)):
+    feedback_items = db.query(FeedbackDB).all()
+    return feedback_items
