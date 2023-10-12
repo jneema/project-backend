@@ -1,9 +1,27 @@
-from fastapi import FastAPI
-from sqlalchemy import create_engine, MetaData, Table, select
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Depends, FastAPI
+from typing import Generator, List
 from pydantic import BaseModel
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import create_engine
+from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy.ext.declarative import declarative_base
 
-# Create a FastAPI app instance
+Base = declarative_base()
+
+engine = create_engine("postgresql://postgres:12345@localhost:5432/api")
+
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+conn = SessionLocal()
+
+def get_db() -> Generator:
+    try:
+        db = SessionLocal()
+        yield db
+    finally:
+        db.close()
+
 app = FastAPI()
 
 origins = ["*"]
@@ -16,140 +34,81 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define a Pydantic model to represent the feedback data
-class FeedbackItem(BaseModel):
+# Define SQLAlchemy models
+class ReviewItem(Base):
+    __tablename__ = "banking_apps"  
+
+    Alias = Column(String, primary_key=True, index=True)
+    Positive_Review_Percentage = Column(Float)
+
+class AllReview(Base):
+    __tablename__ = "all_reviews"
+    Alias = Column(String, primary_key=True)
+    Positive_Review_Percentage = Column(Float)
+
+class LoanApp(Base):
+    __tablename__ = "loan_apps"
+    Alias = Column(String, primary_key=True)
+    Positive_Review_Percentage = Column(Float)
+
+class BettingApp(Base):
+    __tablename__ = "betting_apps"
+    Alias = Column(String, primary_key=True)
+    Positive_Review_Percentage = Column(Float)
+
+class Telecommunication(Base):
+    __tablename__ = "telecommunications"
+    Alias = Column(String, primary_key=True)
+    Positive_Review_Percentage = Column(Float)
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+
+    name = Column(String, primary_key=True, index=True)
+    text = Column(String)
+    rating = Column(Integer)
+
+# Pydantic model for the response
+class ReviewItemResponse(BaseModel):
+    Alias: str
+    Positive_Review_Percentage: float
+
+class FeedbackCreate(BaseModel):
     name: str
     text: str
     rating: int
 
+# In your route handler, use the SQLAlchemy model to query the data
+@app.get("/bankingapps", response_model=List[ReviewItemResponse])
+async def banking_apps(db: Session = Depends(get_db)):
+    items = db.query(ReviewItem).all()
+    return items
 
-class ReviewItem(BaseModel):
-    Alias: str
-    Positive_Review_Percentage: float
+# API route to get items from the 'all_reviews' table
+@app.get("/allreviews", response_model=List[ReviewItemResponse])
+async def get_all_reviews(db: Session = Depends(get_db)):
+    return db.query(AllReview).all()
 
-# PostgreSQL database configuration
-DATABASE_URL = "postgresql://postgres:12345@localhost/api"  
+# API route to get items from the 'loan_apps' table
+@app.get("/loanapps", response_model=List[ReviewItemResponse])
+async def get_loan_apps(db: Session = Depends(get_db)):
+    return db.query(LoanApp).all()
 
-# Create a SQLAlchemy engine and metadata
-engine = create_engine(DATABASE_URL)
-metadata = MetaData()
+# API route to get items from the 'betting_apps' table
+@app.get("/bettingapps", response_model=List[ReviewItemResponse])
+async def get_betting_apps(db: Session = Depends(get_db)):
+    return db.query(BettingApp).all()
 
-# Define the feedback table structure
-table_structure_feedback = Table(
-    'feedback',
-    metadata,
-    autoload=True,
-    autoload_with=engine
-)
+# API route to get items from the 'telecommunications' table
+@app.get("/telecommunications", response_model=List[ReviewItemResponse])
+async def get_telecommunication(db: Session = Depends(get_db)):
+    return db.query(Telecommunication).all()
 
-
-# Defining the table structure for all reviews
-table_structure_all_reviews = Table(
-    'all_reviews',
-    metadata,
-    autoload=True,
-    autoload_with=engine
-)
-
-table_structure_betting_apps = Table(
-    'betting_apps',
-    metadata,
-    autoload=True,
-    autoload_with=engine
-)
-
-table_structure_loan_apps = Table(
-    'loan_apps',
-    metadata,
-    autoload=True,
-    autoload_with=engine
-)
-
-table_structure_mobile_banking = Table(
-    'mobile_banking',
-    metadata,
-    autoload=True,
-    autoload_with=engine
-)
-
-# API route to get all feedback items
-@app.get("/allfeedback", response_model=list[FeedbackItem])
-async def get_feedback():
-    query = select([table_structure_feedback])
-    result = []
-    with engine.connect() as conn:
-        rows = conn.execute(query)
-        for row in rows:
-            result.append(FeedbackItem(name=row['name'], text=row['text'], rating=row['rating']))
-    return result
-
-@app.post("/feedback")
-async def submit_feedback(feedback_data: FeedbackItem):
-      # Extract data from the submitted feedback
-    name = feedback_data.name
-    text = feedback_data.text
-    rating = feedback_data.rating
-    
-    # Perform any necessary validation or processing of the data
-    
-    # Insert the feedback data into the database
-    with engine.connect() as conn:
-        conn.execute(
-            table_structure_feedback.insert().values(
-                name=name,
-                text=text,
-                rating=rating
-            )
-        )
-    
-    # Return a response indicating successful submission
-    return {"message": "Feedback submitted successfully"}
-
-# API route to get all review items
-@app.get("/allreviews", response_model=list[ReviewItem])
-async def all_reviews():
-    query = select([table_structure_all_reviews])
-    result = []
-    with engine.connect() as conn:
-        rows = conn.execute(query)
-        for row in rows:
-            result.append(ReviewItem(Alias=row['Alias'], Positive_Review_Percentage=row['Positive_Review_Percentage']))
-    return result
-
-# API route to get items from the betting apps table
-@app.get("/bettingapps", response_model=list[ReviewItem])
-async def betting_apps():
-    query = select([table_structure_betting_apps])
-    result = []
-    with engine.connect() as conn:
-        rows = conn.execute(query)
-        for row in rows:
-            result.append(ReviewItem(Alias=row['Alias'], Positive_Review_Percentage=row['Positive_Review_Percentage']))
-    return result
-
-# API route to get items from the loan apps table
-@app.get("/loanapps", response_model=list[ReviewItem])
-async def loan_apps():
-    query = select([table_structure_loan_apps])
-    result = []
-    with engine.connect() as conn:
-        rows = conn.execute(query)
-        for row in rows:
-            result.append(ReviewItem(Alias=row['Alias'], Positive_Review_Percentage=row['Positive_Review_Percentage']))
-    return result
-
-# API route to get items from the mobile banking table
-@app.get("/mobilebanking", response_model=list[ReviewItem])
-async def mobile_banking():
-    query = select([table_structure_mobile_banking])
-    result = []
-    with engine.connect() as conn:
-        rows = conn.execute(query)
-        for row in rows:
-            result.append(ReviewItem(Alias=row['Alias'], Positive_Review_Percentage=row['Positive_Review_Percentage']))
-    return result
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.post("/feedback/")
+async def create_feedback(feedback: FeedbackCreate, db: Session = Depends(get_db)):
+    db_feedback = Feedback(**feedback.dict())
+    db.add(db_feedback)
+    db.commit()
+    db.refresh(db_feedback)
+    return db_feedback

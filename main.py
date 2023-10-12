@@ -12,10 +12,12 @@ from sqlalchemy.exc import IntegrityError
 from google_play_scraper import app, Sort, reviews
 
 # PostgreSQL database configuration
-DATABASE_URL = "postgresql://postgres:12345@localhost/api"  # Update with your database URL
+DATABASE_URL = "postgresql://postgres:12345@localhost:5432/api"  
 
 # Function to clean text
 def clean_text(text):
+    if text is None:
+        return ""
     # Lowercase
     text = text.lower()
     # Remove special characters and numbers
@@ -38,12 +40,47 @@ def calculate_positive_percentage(df):
     percentage_positive = (len(positive_reviews) / len(df)) * 100
     return percentage_positive
 
+# # Scrape reviews for multiple apps with aliases
+# app_data = [
+#     {'alias': 'Betika', 'package_name': 'pl.loyaltyclub.betika'},
+#     {'alias': 'Betting App Kenya', 'package_name': 'ke.co.ipandasoft.premiumtipsfree'},
+#     {'alias': 'Odi Bets', 'package_name': 'com.odibet.app'},
+#     {'alias': 'Sport Pesa', 'package_name': 'sportpesa.app3'}
+# ]
+
+# # Scrape reviews for multiple apps with aliases
+# app_data = [
+#     {'alias': 'M-Pesa app', 'package_name': 'com.safaricom.mpesa.lifestyle'},
+#     {'alias': 'Safaricom app', 'package_name': 'com.safaricom.mysafaricom'},
+#     {'alias': 'Airtel App', 'package_name': 'com.airtel.africa.selfcare'},
+#     {'alias': 'Telkom', 'package_name': 'com.mytelkom'},
+#     {'alias': 'T-kash', 'package_name': 'com.tkashapp'}
+# ]
+
+# # Scrape reviews for multiple apps with aliases
+# app_data = [
+#     {'alias': 'Tala', 'package_name': 'com.inventureaccess.safarirahisi'},
+#     {'alias': 'Zenka', 'package_name': 'com.zenkafinance.microloans'},
+#     {'alias': 'Branch', 'package_name': 'com.branch_international.branch.branch_demo_android'},
+#     {'alias': 'Okash', 'package_name': 'com.loan.cash.credit.okash.nigeria'},
+# ]
+
 # Scrape reviews for multiple apps with aliases
 app_data = [
-  {'alias': 'Betika', 'package_name': 'pl.loyaltyclub.betika'},
-    {'alias': 'Betting App Kenya', 'package_name': 'ke.co.ipandasoft.premiumtipsfree'},
-    {'alias': 'Odi Bets', 'package_name': 'com.odibet.app'},
-    {'alias': 'Sport Pesa', 'package_name': 'sportpesa.app3'}
+    {'alias': 'Standard Chartered', 'package_name': 'com.scb.breezebanking.ke'},
+    {'alias': 'Equity', 'package_name': 'ke.co.equitygroup.equitymobile'},
+    {'alias': 'Absa', 'package_name': 'com.absa.ke.mobile.android.ui'},
+    {'alias': 'KCB', 'package_name': 'com.kcbbankgroup.android'},
+    {'alias': 'Vooma', 'package_name': 'com.kcbbankgroup.vooma.android'},
+    {'alias': 'Stanbic', 'package_name': 'com.cfcstanbicbank.app'},
+    {'alias': 'NCBA', 'package_name': 'com.nicbank.android'},
+    {'alias': 'I&M', 'package_name': 'com.imbank.digital.retail.app'},
+    {'alias': 'Consolidated', 'package_name': 'com.bank.myconso'},
+    {'alias': 'MCO-OPCASH', 'package_name': 'com.mcoopcash.retail'},
+    {'alias': 'PesaPap,Family Bank', 'package_name': 'com.mode.familykenya.ui'},
+    {'alias': 'Kenya Baroda Mobi', 'package_name': 'com.barodakenya'},
+    {'alias': 'Access Bank', 'package_name': 'com.craftsilicon.transnationalbank'},
+
 ]
 
 # Create a SQLAlchemy engine and metadata
@@ -52,7 +89,7 @@ metadata = MetaData()
 
 # Define the table structure for new and combined data
 table_structure_new = Table(
-    'betting_apps',
+    'banking_apps',
     metadata,
     Column('Alias', String, primary_key=True),
     Column('Positive_Review_Percentage', Float)
@@ -69,8 +106,9 @@ table_structure_combined = Table(
 inspector = inspect(engine)
 
 # Create tables if they don't exist
-if not inspector.has_table('betting_apps'):
+if not inspector.has_table('banking_apps'):
     metadata.create_all(engine)
+    print("banking_apps table created")
 
 if not inspector.has_table('all_reviews'):
     metadata.create_all(engine)
@@ -112,5 +150,6 @@ with engine.connect() as conn:
             # Handle duplicate entry errors, if any
             print(f"Error inserting data for {alias} into combined table: {e}")
 
+        conn.commit()
 # Close the database connection
 engine.dispose()
