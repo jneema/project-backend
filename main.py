@@ -1,8 +1,13 @@
+from typing import Any, Dict, List, Optional
 from fastapi import FastAPI
-from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from scraper import main
-import uuid  # For generating a unique table suffix
+import uuid
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Sequence, MetaData, Table
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import datetime
 
 app = FastAPI()
 
@@ -16,6 +21,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global variable to store the latest table name
+latest_table_name = None
+
 class SearchQuery(BaseModel):
     query: str
     numReviews: int
@@ -23,19 +31,50 @@ class SearchQuery(BaseModel):
 class ScrapeResponse(BaseModel):
     message: str
     positive_review_percentage: float
+    table_name: str
+    table_data: Optional[List[Dict[str, Any]]]
 
 @app.post("/scrape_reviews/")
 async def scrape_reviews(search_query: SearchQuery):
+    global latest_table_name  # Declare the global variable
+
     query = search_query.query
     num_reviews = search_query.numReviews
 
-    # Generate a unique table name suffix for this request
-    table_suffix = str(uuid.uuid4())
+    # Call the scraping function without generating a new table name
+    positive_percentage, table_data, table_name = main(query, num_reviews)
 
-    # Call the scraping function with the table suffix
-    success = main(query, num_reviews, table_suffix)
+    # Update the global variable with the latest table name
+    latest_table_name = table_name
 
-    if success:
-        return ScrapeResponse(message="Scraping completed successfully", positive_review_percentage=0.0)
-    else:
-        return ScrapeResponse(message="Scraping failed", positive_review_percentage=0.0)
+    return ScrapeResponse(
+        message="Scraping completed successfully",
+        positive_review_percentage=positive_percentage,
+        table_name=table_name,
+        table_data=table_data
+    )
+
+@app.get("/get_latest_table_data/")
+async def get_latest_table_data():
+    global latest_table_name  # Retrieve the latest table name
+    # print(latest_table_name)
+
+    if latest_table_name is None:
+        return {"message": "No table data available."}
+    
+    table_name_with_prefix = f"{latest_table_name}"
+
+    db_url = "postgresql://postgres:12345@localhost/reviews"
+    engine = create_engine(db_url)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    metadata = MetaData()
+    latest_table = Table(table_name_with_prefix, metadata, autoload_with=engine)
+    result = session.query(latest_table).all()
+
+    session.close()
+
+    table_data = [{"id": row.id, "review": row.review, "sentiment_label": row.sentiment_label, "sentiment_score": row.sentiment_score, "created_at": row.created_at} for row in result]
+
+    return {"table_name": table_name_with_prefix, "table_data": table_data}

@@ -62,6 +62,8 @@ def create_reviews_table(engine, table_suffix):
         sentiment_score = Column(Float)
         created_at = Column(DateTime, default=datetime.datetime.now)
 
+    print(f"Created Table: {Review.__tablename__}")
+
     # Create the reviews table if it doesn't exist
     Base.metadata.create_all(engine)
 
@@ -111,6 +113,8 @@ def scrape_and_save_reviews(app_id, num_reviews, session, Review):
     positive_percentage = (positive_reviews / total_reviews) * 100
     print(f"Positive Review Percentage: {positive_percentage:.2f}%")
 
+    return positive_percentage  # Return positive percentage 
+
 # Main function to control the entire process
 def main(search_query, num_reviews=100, table_suffix=None):
     # Create a Chrome webdriver
@@ -157,6 +161,7 @@ def main(search_query, num_reviews=100, table_suffix=None):
 
     # Generate a unique table name (e.g., based on a UUID)
     table_suffix = str(uuid.uuid4())
+    print(f"Main Function - Table Name: reviews_{table_suffix}")
 
     # Create a SQLAlchemy engine and session
     engine = create_engine(db_url)
@@ -165,16 +170,21 @@ def main(search_query, num_reviews=100, table_suffix=None):
     # Create a new table to store reviews
     Review = create_reviews_table(engine, table_suffix)
 
+    # Print the name of the created table
+    print(f"Main Function - Created Table: {Review.__tablename__}")
+
     # Create a session for database operations
     session = Session()
 
     # Scrape and save reviews to the database
-    scrape_and_save_reviews(app_id, num_reviews, session, Review)
+    positive_percentage  = scrape_and_save_reviews(app_id, num_reviews, session, Review)
 
     # Close the database session
     session.close()
 
     driver.quit()
+    
+    return positive_percentage, None, f"{Review.__tablename__}"
 
 if __name__ == '__main__':
     main("your_search_query", num_reviews=100)
