@@ -1,13 +1,9 @@
-from typing import Any, Dict, List, Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from scraper import main
-import uuid
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Sequence, MetaData, Table
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine, MetaData, Table
 from sqlalchemy.orm import sessionmaker
-import datetime
 
 app = FastAPI()
 
@@ -32,7 +28,6 @@ class ScrapeResponse(BaseModel):
     message: str
     positive_review_percentage: float
     table_name: str
-    table_data: Optional[List[Dict[str, Any]]]
 
 @app.post("/scrape_reviews/")
 async def scrape_reviews(search_query: SearchQuery):
@@ -51,7 +46,6 @@ async def scrape_reviews(search_query: SearchQuery):
         message="Scraping completed successfully",
         positive_review_percentage=positive_percentage,
         table_name=table_name,
-        table_data=table_data
     )
 
 @app.get("/get_latest_table_data/")

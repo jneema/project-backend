@@ -4,7 +4,6 @@ from selenium.webdriver.common.keys import Keys
 import time
 from google_play_scraper import app, reviews, Sort
 from transformers import pipeline
-import nltk
 import re
 from tqdm import tqdm
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Sequence
@@ -13,8 +12,9 @@ from sqlalchemy.orm import sessionmaker
 import datetime
 import uuid  # For generating unique table names
 
-# Initializing NLTK
-nltk.download('punkt')
+# Function to extract app ID from the app's URL
+def extract_app_id(url):
+    return url.split('=')[-1]
 
 # Function to perform sentiment analysis using DistilBERT
 def analyze_sentiment(text):
@@ -29,10 +29,6 @@ def analyze_sentiment(text):
     label = results[0]['label']
     score = results[0]['score']
     return label, score
-
-# Function to extract app ID from the app's URL
-def extract_app_id(url):
-    return url.split('=')[-1]
 
 # Function to clean text
 def clean_text(text):
@@ -156,7 +152,7 @@ def main(search_query, num_reviews=100, table_suffix=None):
             break
         last_height = new_height
 
-    # Define your PostgreSQL database connection URL
+    # Define PostgreSQL database connection URL
     db_url = "postgresql://postgres:12345@localhost/reviews"
 
     # Generate a unique table name (e.g., based on a UUID)
